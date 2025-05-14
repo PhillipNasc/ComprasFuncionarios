@@ -276,30 +276,32 @@
         });
         
         const selectedMonth = document.getElementById('monthFilter').value;
+        if (!selectedMonth) {
+            alert("Selecione um mês para exportar o relatório.");
+            return;
+        }
+        const [year, month] = selectedMonth.split("-");
+        const monthText = new Date(parseInt(year), parseInt(month) - 1).toLocaleString("pt-BR", { month: "long" });
         const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(selectedMonth));
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
         doc.setFontSize(14);
-        doc.setTextColor(40);
-        doc.text("Relatório de Dívidas - " + selectedMonth, 10, 15);
-        doc.setFontSize(11);
+        doc.text(`Relatório de Dívidas - ${monthText.toUpperCase()} ${year}`, 10, 15);
+
         let y = 25;
-        let currentCompany = "";
         filtered.forEach((debt, index) => {
-            if (debt.company !== currentCompany) {
-                currentCompany = debt.company;
-                doc.setFont(undefined, "bold");
-                doc.text(`Empresa: ${currentCompany}`, 10, y);
-                y += 8;
-                doc.setFont(undefined, "normal");
-            }
-            const text = `${debt.employee} | Parcela ${debt.installment} | R$ ${debt.installmentValue.toFixed(2)} | ${debt.description}`;
-            doc.text(text, 12, y);
-            y += 6;
+            const text = `${debt.company} | ${debt.employee} | R$ ${debt.installmentValue.toFixed(2)} | ${monthText} | ${debt.description}`;
+            doc.setFontSize(11);
+            doc.text(text, 10, y);
+            y += 8;
             if (y > 280) {
                 doc.addPage();
                 y = 15;
             }
         });
-        doc.save("Dividas-" + selectedMonth + ".pdf");
+
+        doc.save(`Dividas-${monthText}-${year}.pdf`);
 
 
     }
