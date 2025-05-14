@@ -208,6 +208,13 @@
 
         recordedDebts.push(...debts);
         showSummary();
+
+        document.getElementById('employeeSelect').value = "";
+        document.getElementById('amount').value = "";
+        document.getElementById('installments').value = "0";
+        document.getElementById('description').value = "";
+        document.getElementById('debtDate').value = "";
+
     }
 
     function showSummary() {
@@ -251,7 +258,18 @@
             doc.text(text, 10, y);
             y += 10;
         });
-        doc.save("devedores.pdf");
+        
+        const selectedMonth = document.getElementById('monthFilter').value;
+        const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(selectedMonth));
+        doc.text("Relatório de Dívidas - " + selectedMonth, 10, 10);
+        let yPos = 20;
+        filtered.forEach((debt, index) => {
+            const text = `${index + 1}. ${debt.company} - ${debt.employee} - Parcela ${debt.installment}: R$ ${debt.installmentValue.toFixed(2)} - ${debt.description}`;
+            doc.text(text, 10, yPos);
+            yPos += 10;
+        });
+        doc.save("Dividas-" + selectedMonth + ".pdf");
+
     }
 
     function filterByMonth() {
