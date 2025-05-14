@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Dívidas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #3498db;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 8px;
+        }
+        .result h2 {
+            margin-top: 0;
+        }
+        .flex-group {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Controle de Dívidas de Funcionários</h1>
+
+        <div class="form-group">
+            <label for="companyFilter">Filtrar por Empresa:</label>
+            <select id="companyFilter" onchange="filterEmployees()">
+                <option value="">Todas</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="employeeSelect">Selecione o Funcionário:</label>
+            <select id="employeeSelect">
+                <option value="">Selecione uma empresa</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="amount">Valor da Dívida (R$):</label>
+            <input type="number" id="amount" placeholder="Digite o valor da dívida">
+        </div>
+
+        <div class="form-group">
+            <label for="installments">Número de Parcelas:</label>
+            <select id="installments">
+                <option value="0">Pagamento à Vista</option>
+                ${[...Array(10)].map((_, i) => `<option value="${i+1}">${i+1} Parcela(s)</option>`).join('')}
+            </select>
+        </div>
+
+        <button onclick="submitDebt()">Registrar Dívida</button>
+        <button onclick="exportPDF()">Exportar Lista para PDF</button>
+
+        <div class="form-group">
+            <label for="monthFilter">Filtrar dívidas por mês:</label>
+            <input type="month" id="monthFilter" onchange="filterByMonth()">
+        </div>
+
+        <div class="result" id="result" style="display: none;">
+            <h2>Resumo:</h2>
+            <p id="summary"></p>
+            <ul id="installmentList"></ul>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        const sheetId = '1zf034ETHpCtno5HsWNU7dFMcMWUSXHywOauMCmeRYCg';
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=Sheet1`;
+        let employeesData = [];
+
+        async function fetchEmployees() {
+            try {
+                const res = await fetch(sheetUrl);
+                const text = await res.text();
+                const json = JSON.parse(text.substring(47).slice(0, -2));
+                const rows = json.table.rows;
+                employeesData = rows.map(row => ({
+                    company: row.c[0]?.v || '',
+                    name: row.c[1]?.v || ''
+                })).filter(emp => emp.company && emp.name);
+
+                const companySet = [...new Set(employeesData.map(emp => emp.company))];
+                const companySelect = document.getElementById('companyFilter');
+                companySet.forEach(company => {
+                    const option = document.createElement('option');
+                    option.value = company;
+                    option.textContent = company;
+                    companySelect.appendChild(option);
+                });
+
+                filterEmployees();
+            } catch (err) {
+                console.error('Erro ao buscar dados:', err);
+                document.getElementById('employeeSelect').innerHTML = '<option>Erro ao carregar dados</option>';
+            }
+        }
+
+        function filterEmployees() {
+            const selectedCompany = document.getElementById('companyFilter').value;
+            const employeeSelect = document.getElementById('employeeSelect');
+            employeeSelect.innerHTML = '';
+
+            const filtered = selectedCompany ? employeesData.filter(e => e.company === selectedCompany) : employeesData;
+            filtered.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.name;
+                option.textContent = `${emp.name} (${emp.company})`;
+                employeeSelect.appendChild(option);
+            });
+        }
+
+        function submitDebt() {
+            const employee = document.getElementById('employeeSelect').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const installments = parseInt(document.getElementById('installments').value);
+
+            if (!employee || isNaN(amount) || amount <= 0) {
+                alert("Preencha todos os campos corretamente.");
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            const summary = document.getElementById('summary');
+            const list = document.getElementById('installmentList');
+            list.innerHTML = '';
+
+            const today = new Date();
+            if (installments === 0) {
+                summary.textContent = `Dívida de R$ ${amount.toFixed(2)} registrada para ${employee}, pagamento à vista.`;
+            } else {
+                const installmentValue = amount / installments;
+                summary.textContent = `Dívida de R$ ${amount.toFixed(2)} registrada para ${employee}, em ${installments} parcelas de R$ ${installmentValue.toFixed(2)}:`;
+
+                for (let i = 1; i <= installments; i++) {
+                    const dueDate = new Date(today);
+                    dueDate.setMonth(today.getMonth() + i);
+                    const formattedDate = dueDate.toLocaleDateString('pt-BR');
+                    const li = document.createElement('li');
+                    li.textContent = `Parcela ${i}: R$ ${installmentValue.toFixed(2)} - Vencimento: ${formattedDate}`;
+                    list.appendChild(li);
+                }
+            }
+
+            resultDiv.style.display = 'block';
+        }
+
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Lista de Devedores", 10, 10);
+            const items = document.querySelectorAll('#installmentList li');
+            let y = 20;
+            items.forEach((item, index) => {
+                doc.text(`${index + 1}. ${item.textContent}`, 10, y);
+                y += 10;
+            });
+            doc.save("devedores.pdf");
+        }
+
+        function filterByMonth() {
+            const month = document.getElementById('monthFilter').value;
+            const items = document.querySelectorAll('#installmentList li');
+            const filtered = Array.from(items).filter(item => item.textContent.includes(month.split('-').reverse().join('/')));
+            items.forEach(li => li.style.display = 'none');
+            filtered.forEach(li => li.style.display = 'list-item');
+        }
+
+        fetchEmployees();
+    </script>
+</body>
+</html>
+
+mkdir controle-dividas
+cd controle-dividas
+git init
+touch index.html
+# Cole o código HTML no arquivo index.html
+git add .
+git commit -m "Versão inicial do controle de dívidas"
+git branch -M main
+git remote add origin https://github.com/PhillipNasc/ComprasFuncionarios.git
+git push -u origin main
