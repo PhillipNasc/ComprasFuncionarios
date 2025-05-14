@@ -119,6 +119,9 @@
 
     <button onclick="submitDebt()">Registrar Dívida</button>
     <button onclick="exportPDF()">Exportar Lista para PDF</button>
+    
+    <button onclick="clearHistory()">Limpar Histórico</button>
+
 
     <div class="form-group">
         <label for="monthFilter">Filtrar dívidas por mês:</label>
@@ -206,8 +209,11 @@
             });
         }
 
+        
         recordedDebts.push(...debts);
+        localStorage.setItem('debts', JSON.stringify(recordedDebts));
         showSummary();
+
 
         document.getElementById('employeeSelect').value = "";
         document.getElementById('amount').value = "";
@@ -268,7 +274,33 @@
             doc.text(text, 10, yPos);
             yPos += 10;
         });
+        
+        const selectedMonth = document.getElementById('monthFilter').value;
+        const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(selectedMonth));
+        doc.setFontSize(14);
+        doc.setTextColor(40);
+        doc.text("Relatório de Dívidas - " + selectedMonth, 10, 15);
+        doc.setFontSize(11);
+        let y = 25;
+        let currentCompany = "";
+        filtered.forEach((debt, index) => {
+            if (debt.company !== currentCompany) {
+                currentCompany = debt.company;
+                doc.setFont(undefined, "bold");
+                doc.text(`Empresa: ${currentCompany}`, 10, y);
+                y += 8;
+                doc.setFont(undefined, "normal");
+            }
+            const text = `${debt.employee} | Parcela ${debt.installment} | R$ ${debt.installmentValue.toFixed(2)} | ${debt.description}`;
+            doc.text(text, 12, y);
+            y += 6;
+            if (y > 280) {
+                doc.addPage();
+                y = 15;
+            }
+        });
         doc.save("Dividas-" + selectedMonth + ".pdf");
+
 
     }
 
@@ -306,7 +338,25 @@
         document.getElementById('result').style.display = 'block';
     }
 
+    
+    function clearHistory() {
+        if (confirm("Tem certeza que deseja apagar todo o histórico de dívidas?")) {
+            localStorage.removeItem('debts');
+            recordedDebts = [];
+            showSummary();
+            alert("Histórico apagado.");
+        }
+    }
+
+
     fetchEmployees();
+
+    const savedDebts = localStorage.getItem('debts');
+    if (savedDebts) {
+        recordedDebts = JSON.parse(savedDebts);
+        showSummary();
+    }
+
 </script>
 </body>
 </html>
