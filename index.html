@@ -8,20 +8,21 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            background-color: #121212;
+            color: #e0e0e0;
             padding: 20px;
         }
         .container {
-            background: white;
+            background: #1e1e1e;
             padding: 30px;
             border-radius: 10px;
             max-width: 900px;
             margin: 0 auto;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
         h1 {
             text-align: center;
-            color: #3498db;
+            color: #90caf9;
         }
         .form-group {
             margin-bottom: 15px;
@@ -30,42 +31,46 @@
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
+            color: #bb86fc;
         }
         input, select, textarea {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ccc;
+            border: 1px solid #333;
             border-radius: 5px;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
         }
         button {
             padding: 10px 15px;
-            background-color: #3498db;
-            color: white;
+            background-color: #90caf9;
+            color: #121212;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
         }
         button:hover {
-            background-color: #2980b9;
+            background-color: #64b5f6;
         }
         .result {
             margin-top: 30px;
             padding: 15px;
-            background: #ecf0f1;
+            background: #2e2e2e;
             border-radius: 8px;
         }
         .result h2 {
             margin-top: 0;
+            color: #ffcc80;
         }
         .company-group {
             margin-top: 10px;
             padding: 10px;
-            background: #fff;
-            border: 1px solid #ccc;
+            background: #3a3a3a;
+            border: 1px solid #444;
             border-radius: 5px;
         }
-    </style>
+</style>
 </head>
 <body>
 <div class="container">
@@ -136,8 +141,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-    const sheetId = '1-bL0Bcu_xHa_kM0d6bfoJ9Lqoxmp3SHgyI78sDHNK38';
-    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=Nomes`;
+    const sheetId = '1zf034ETHpCtno5HsWNU7dFMcMWUSXHywOauMCmeRYCg';
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=Sheet1`;
     let employeesData = [];
     let recordedDebts = [];
 
