@@ -175,7 +175,7 @@
     <div class="button-group">
         <button onclick="submitDebt()">Registrar Dívida</button>
         <button onclick="exportPDF()">Exportar para PDF</button>
-        <button onclick="clearHistory()">Limpar Histórico</button>
+        <button onclick="toggleDeleteMode()">Excluir Dívida</button>
     </div>
 
     <div class="form-group">
@@ -198,6 +198,7 @@
     const sheetName = 'Nomes';
     let employeesData = [];
     let recordedDebts = [];
+let deleteMode = false;
 
     // Função para carregar dados da planilha
     async function fetchEmployees() {
@@ -357,6 +358,13 @@
         setTimeout(() => successMsg.remove(), 3000);
     }
 
+    
+    function toggleDeleteMode() {
+        deleteMode = !deleteMode;
+        alert(deleteMode ? "Modo de exclusão ativado. Clique em um registro para removê-lo." : "Modo de exclusão desativado.");
+    }
+
+
     // Mostrar resumo das dívidas
     function showSummary() {
         const summaryDiv = document.getElementById('summary');
@@ -398,6 +406,25 @@
                         Vencimento: ${formatDate(debt.dueDate)} | 
                         ${debt.description ? `Descrição: ${debt.description}` : ''}
                     `;
+                    p.style.cursor = 'pointer';
+                    p.title = 'Clique para excluir esta dívida';
+                    p.onclick = () => {
+                        if (!deleteMode) return;
+                        if (!deleteMode) return;
+                        if (confirm("Deseja realmente excluir TODA a dívida deste funcionário?")) {
+                            recordedDebts = recordedDebts.filter(d =>
+                                !(d.employee === debt.employee &&
+                                  d.amount === debt.amount &&
+                                  d.description === debt.description &&
+                                  d.company === debt.company)
+                            );
+                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                            showSummary();
+                        }
+                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                            showSummary();
+                        }
+                    };
                     container.appendChild(p);
                 });
 
@@ -416,91 +443,72 @@
 
     // Exportar para PDF
     function exportPDF() {
-    const selectedMonth = document.getElementById('monthFilter').value;
-    if (!selectedMonth) {
-        alert("Selecione um mês para exportar o relatório.");
-        return;
-    }
+        const selectedMonth = document.getElementById('monthFilter').value;
+        if (!selectedMonth) {
+            alert("Selecione um mês para exportar o relatório.");
+            return;
+        }
 
-    const [year, month] = selectedMonth.split("-");
-    const monthText = new Date(parseInt(year), parseInt(month) - 1).toLocaleString("pt-BR", { month: "long" });
-    const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(selectedMonth));
+        const [year, month] = selectedMonth.split("-");
+        const monthText = new Date(parseInt(year), parseInt(month) - 1).toLocaleString("pt-BR", { month: "long" });
+        const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(selectedMonth));
 
-    if (filtered.length === 0) {
-        alert(`Nenhuma dívida encontrada para ${monthText}/${year}`);
-        return;
-    }
+        if (filtered.length === 0) {
+            alert(`Nenhuma dívida encontrada para ${monthText}/${year}`);
+            return;
+        }
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.setTextColor(40);
-    doc.text(`Relatório de Dívidas - ${monthText.toUpperCase()} ${year}`, 105, 15, null, null, 'center');
-
-    let currentY = 25;
-    const grouped = filtered.reduce((acc, debt) => {
-        const key = debt.company;
-        acc[key] = acc[key] || [];
-        acc[key].push(debt);
-        return acc;
-    }, {});
-
-    const companies = Object.keys(grouped).sort();
-
-    companies.forEach(company => {
-        doc.setFontSize(14);
-        doc.setTextColor(0);
-        doc.text(`Empresa: ${company}`, 14, currentY);
-        currentY += 5;
-
-        const rows = grouped[company].map(debt => {
-            const totalParcelas = recordedDebts.filter(d =>
-                d.employee === debt.employee &&
-                d.description === debt.description &&
-                d.amount === debt.amount
-            ).length;
-
-            const parcelasRestantes = totalParcelas - debt.installment + 1;
-
-            return [
-                debt.employee,
-                { content: `R$ ${debt.installmentValue.toFixed(2)}`, styles: { fontStyle: 'bold' } },
-                { content: parcelasRestantes.toString(), styles: { halign: 'center', fontStyle: 'bold' } },
-                debt.description || ''
-            ];
-        });
-
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Cabeçalho
+        doc.setFontSize(16);
+        doc.setTextColor(40);
+        doc.text(`Relatório de Dívidas - ${monthText.toUpperCase()} ${year}`, 105, 15, null, null, 'center');
+        
+        // Configurações da tabela
+        const columns = [
+            { header: 'Empresa', dataKey: 'company' },
+            { header: 'Funcionário', dataKey: 'employee' },
+            { header: 'Valor (R$)', dataKey: 'installmentValue' },
+            { header: 'Vencimento', dataKey: 'dueDate' },
+            { header: 'Descrição', dataKey: 'description' }
+        ];
+        
+        const rows = filtered.map(debt => ({
+            ...debt,
+            installmentValue: debt.installmentValue.toFixed(2),
+            dueDate: formatDate(debt.dueDate)
+        }));
+        
+        // Adiciona tabela
         doc.autoTable({
-            head: [['Funcionário', 'Valor (R$)', 'Parcelas Restantes', 'Descrição']],
-            body: rows,
-            startY: currentY,
+            head: [columns.map(col => col.header)],
+            body: rows.map(row => columns.map(col => row[col.dataKey])),
+            startY: 25,
             styles: {
                 fontSize: 10,
                 cellPadding: 3,
                 overflow: 'linebreak'
             },
-            margin: { left: 14, right: 14 },
             columnStyles: {
-                0: { cellWidth: 40 },
-                1: { cellWidth: 25 },
-                2: { cellWidth: 30, halign: 'center' },
-                3: { cellWidth: 'auto' }
+                0: { cellWidth: 30 },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 20 },
+                3: { cellWidth: 25 },
+                4: { cellWidth: 'auto' }
             },
-            didDrawPage: function (data) {
-                currentY = data.cursor.y + 10;
-            }
+            margin: { left: 10, right: 10 }
         });
-    });
 
-    const total = filtered.reduce((sum, debt) => sum + debt.installmentValue, 0);
-    doc.setFontSize(12);
-    doc.text(`Total: R$ ${total.toFixed(2)}`, 14, currentY);
-    doc.text(`Data de emissão: ${formatDate(new Date().toISOString().slice(0, 10))}`, 105, currentY, null, null, 'center');
-
-    doc.save(`Relatório_Dívidas_${monthText}_${year}.pdf`);
-}
-
-
+        // Rodapé
+        const total = filtered.reduce((sum, debt) => sum + debt.installmentValue, 0);
+        doc.setFontSize(12);
+        doc.text(`Total: R$ ${total.toFixed(2)}`, 14, doc.lastAutoTable.finalY + 10);
+        doc.text(`Data de emissão: ${formatDate(new Date().toISOString().slice(0, 10))}`, 105, doc.lastAutoTable.finalY + 10, null, null, 'center');
+        
+        doc.save(`Relatório_Dívidas_${monthText}_${year}.pdf`);
+    }
 
     // Filtrar por mês
     function filterByMonth() {
@@ -541,6 +549,25 @@
                         Vencimento: ${formatDate(debt.dueDate)} | 
                         ${debt.description ? `Descrição: ${debt.description}` : ''}
                     `;
+                    p.style.cursor = 'pointer';
+                    p.title = 'Clique para excluir esta dívida';
+                    p.onclick = () => {
+                        if (!deleteMode) return;
+                        if (!deleteMode) return;
+                        if (confirm("Deseja realmente excluir TODA a dívida deste funcionário?")) {
+                            recordedDebts = recordedDebts.filter(d =>
+                                !(d.employee === debt.employee &&
+                                  d.amount === debt.amount &&
+                                  d.description === debt.description &&
+                                  d.company === debt.company)
+                            );
+                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                            showSummary();
+                        }
+                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                            showSummary();
+                        }
+                    };
                     container.appendChild(p);
                 });
 
