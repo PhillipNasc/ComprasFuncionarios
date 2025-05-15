@@ -78,6 +78,7 @@
             transition: background 0.3s, border-color 0.3s;
         }
 
+        /* Tema Claro */
         body.light-mode {
             background-color: #ffffff;
             color: #111111;
@@ -115,6 +116,22 @@
         }
         body.light-mode .result h2 {
             color: #e65100;
+        }
+
+        /* Botão do Tema */
+        #themeToggle {
+            background-color: transparent;
+            border: 1px solid currentColor;
+            color: inherit;
+            transition: all 0.3s ease;
+        }
+        body:not(.light-mode) #themeToggle {
+            border-color: #90caf9;
+            color: #90caf9;
+        }
+        body.light-mode #themeToggle {
+            border-color: #3498db;
+            color: #3498db;
         }
     </style>
 </head>
@@ -198,7 +215,7 @@
     const sheetName = 'Nomes';
     let employeesData = [];
     let recordedDebts = [];
-let deleteMode = false;
+    let deleteMode = false;
 
     // Função para carregar dados da planilha
     async function fetchEmployees() {
@@ -240,15 +257,16 @@ let deleteMode = false;
             console.error('Erro ao buscar dados:', err);
             document.getElementById('employeeSelect').innerHTML = '<option>Erro ao carregar dados</option>';
             
-            const errMsg = document.createElement('p');
-            errMsg.textContent = 'Erro ao importar dados da planilha. Verifique:';
-            errMsg.innerHTML += '<ul style="text-align: left;">';
-            errMsg.innerHTML += '<li>Se a planilha está compartilhada publicamente</li>';
-            errMsg.innerHTML += '<li>Se a aba "Nomes" existe e tem os dados corretos</li>';
-            errMsg.innerHTML += '<li>Sua conexão com a internet</li>';
-            errMsg.innerHTML += '</ul>';
-            errMsg.style.color = 'red';
-            document.querySelector('.container').appendChild(errMsg);
+            const errMsg = document.createElement('div');
+            errMsg.innerHTML = `
+                <p style="color: red; background: #ffebee; padding: 10px; border-radius: 5px;">
+                    Erro ao carregar dados da planilha. Verifique:<br>
+                    1. Se a planilha está compartilhada publicamente (link compartilhável)<br>
+                    2. Se o ID da planilha e nome da aba estão corretos<br>
+                    3. Sua conexão com a internet
+                </p>
+            `;
+            document.querySelector('.container').prepend(errMsg);
         }
     }
 
@@ -358,12 +376,10 @@ let deleteMode = false;
         setTimeout(() => successMsg.remove(), 3000);
     }
 
-    
     function toggleDeleteMode() {
         deleteMode = !deleteMode;
         alert(deleteMode ? "Modo de exclusão ativado. Clique em um registro para removê-lo." : "Modo de exclusão desativado.");
     }
-
 
     // Mostrar resumo das dívidas
     function showSummary() {
@@ -410,7 +426,6 @@ let deleteMode = false;
                     p.title = 'Clique para excluir esta dívida';
                     p.onclick = () => {
                         if (!deleteMode) return;
-                        if (!deleteMode) return;
                         if (confirm("Deseja realmente excluir TODA a dívida deste funcionário?")) {
                             recordedDebts = recordedDebts.filter(d =>
                                 !(d.employee === debt.employee &&
@@ -418,9 +433,6 @@ let deleteMode = false;
                                   d.description === debt.description &&
                                   d.company === debt.company)
                             );
-                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
-                            showSummary();
-                        }
                             localStorage.setItem('debts', JSON.stringify(recordedDebts));
                             showSummary();
                         }
@@ -553,7 +565,6 @@ let deleteMode = false;
                     p.title = 'Clique para excluir esta dívida';
                     p.onclick = () => {
                         if (!deleteMode) return;
-                        if (!deleteMode) return;
                         if (confirm("Deseja realmente excluir TODA a dívida deste funcionário?")) {
                             recordedDebts = recordedDebts.filter(d =>
                                 !(d.employee === debt.employee &&
@@ -561,9 +572,6 @@ let deleteMode = false;
                                   d.description === debt.description &&
                                   d.company === debt.company)
                             );
-                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
-                            showSummary();
-                        }
                             localStorage.setItem('debts', JSON.stringify(recordedDebts));
                             showSummary();
                         }
@@ -575,21 +583,6 @@ let deleteMode = false;
         }
 
         document.getElementById('result').style.display = 'block';
-    }
-
-    // Limpar histórico
-    function clearHistory() {
-        if (confirm("Tem certeza que deseja apagar todo o histórico de dívidas?\nEsta ação não pode ser desfeita.")) {
-            localStorage.removeItem('debts');
-            recordedDebts = [];
-            showSummary();
-            
-            const msg = document.createElement('p');
-            msg.textContent = 'Histórico apagado com sucesso.';
-            msg.style.color = 'green';
-            document.querySelector('.button-group').appendChild(msg);
-            setTimeout(() => msg.remove(), 3000);
-        }
     }
 
     // Alternar tema claro/escuro
@@ -607,11 +600,12 @@ let deleteMode = false;
     // Inicialização
     window.onload = function() {
         // Aplicar tema salvo
-        const theme = localStorage.getItem('theme');
-        if (theme === 'light') {
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
             document.body.classList.add('light-mode');
             document.getElementById('themeToggle').textContent = 'Modo Escuro';
         } else {
+            document.body.classList.remove('light-mode');
             document.getElementById('themeToggle').textContent = 'Modo Claro';
         }
 
