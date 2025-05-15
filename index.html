@@ -52,6 +52,8 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            margin-right: 5px;
+            margin-bottom: 5px;
         }
         button:hover {
             background-color: #64b5f6;
@@ -140,7 +142,7 @@
 
     <div class="form-group">
         <label for="amount">Valor da Dívida (R$):</label>
-        <input type="number" id="amount" placeholder="Digite o valor da dívida" />
+        <input type="number" id="amount" placeholder="Digite o valor da dívida" step="0.01" min="0" />
     </div>
 
     <div class="form-group">
@@ -170,9 +172,11 @@
         <input type="date" id="debtDate"/>
     </div>
 
-    <button onclick="submitDebt()">Registrar Dívida</button>
-    <button onclick="exportPDF()">Exportar Lista para PDF</button>
-    <button onclick="clearHistory()">Limpar Histórico</button>
+    <div class="button-group">
+        <button onclick="submitDebt()">Registrar Dívida</button>
+        <button onclick="exportPDF()">Exportar para PDF</button>
+        <button onclick="clearHistory()">Limpar Histórico</button>
+    </div>
 
     <div class="form-group">
         <label for="monthFilter">Filtrar dívidas por mês:</label>
@@ -186,33 +190,44 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script>
-    // Configuração da Planilha
+    // Configuração da Planilha com seus dados
     const sheetId = '1-bL0Bcu_xHa_kM0d6bfoJ9Lqoxmp3SHgyI78sDHNK38';
-    const API_KEY = 'AIzaSyAXX1EhyL2GxFUeP80IqC5_EOxXzKwuArI'; // Substitua por sua chave de API
+    const API_KEY = 'AIzaSyAXX1EhyL2GxFUeP80IqC5_EOxXzKwuArI';
+    const sheetName = 'Nomes';
     let employeesData = [];
     let recordedDebts = [];
 
     // Função para carregar dados da planilha
     async function fetchEmployees() {
         try {
-            const range = 'Sheet1!A:B'; // Ajuste conforme sua planilha
+            const range = `${sheetName}!A:B`;
             const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${range}?key=${API_KEY}`;
             
             const res = await fetch(url);
             if (!res.ok) throw new Error('Erro na requisição');
             
             const data = await res.json();
+            
+            if (!data.values || data.values.length === 0) {
+                throw new Error('Nenhum dado encontrado na planilha');
+            }
+            
             employeesData = data.values.slice(1) // Remove cabeçalho
                 .map(row => ({
-                    company: row[0] || '',
-                    name: row[1] || ''
+                    company: row[0] ? row[0].trim() : '',
+                    name: row[1] ? row[1].trim() : ''
                 }))
                 .filter(emp => emp.company && emp.name);
 
             const companySet = [...new Set(employeesData.map(emp => emp.company))];
             const companySelect = document.getElementById('companyFilter');
-            companySet.forEach(company => {
+            
+            // Limpa opções existentes, mantendo apenas "Todas"
+            companySelect.innerHTML = '<option value="">Todas</option>';
+            
+            companySet.sort().forEach(company => {
                 const option = document.createElement('option');
                 option.value = company;
                 option.textContent = company;
@@ -225,7 +240,12 @@
             document.getElementById('employeeSelect').innerHTML = '<option>Erro ao carregar dados</option>';
             
             const errMsg = document.createElement('p');
-            errMsg.textContent = 'Erro ao importar dados da planilha. Verifique a conexão e as permissões.';
+            errMsg.textContent = 'Erro ao importar dados da planilha. Verifique:';
+            errMsg.innerHTML += '<ul style="text-align: left;">';
+            errMsg.innerHTML += '<li>Se a planilha está compartilhada publicamente</li>';
+            errMsg.innerHTML += '<li>Se a aba "Nomes" existe e tem os dados corretos</li>';
+            errMsg.innerHTML += '<li>Sua conexão com a internet</li>';
+            errMsg.innerHTML += '</ul>';
             errMsg.style.color = 'red';
             document.querySelector('.container').appendChild(errMsg);
         }
@@ -235,15 +255,39 @@
     function filterEmployees() {
         const selectedCompany = document.getElementById('companyFilter').value;
         const employeeSelect = document.getElementById('employeeSelect');
-        employeeSelect.innerHTML = '';
+        employeeSelect.innerHTML = '<option value="">Selecione um funcionário</option>';
 
-        const filtered = selectedCompany ? employeesData.filter(e => e.company === selectedCompany) : employeesData;
-        filtered.forEach(emp => {
-            const option = document.createElement('option');
-            option.value = emp.name;
-            option.textContent = `${emp.name} (${emp.company})`;
-            employeeSelect.appendChild(option);
-        });
+        if (!selectedCompany && employeesData.length > 0) {
+            // Se nenhuma empresa selecionada, mostra todos os funcionários agrupados por empresa
+            const companies = [...new Set(employeesData.map(emp => emp.company))];
+            companies.sort().forEach(company => {
+                const optGroup = document.createElement('optgroup');
+                optGroup.label = company;
+                
+                employeesData
+                    .filter(emp => emp.company === company)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .forEach(emp => {
+                        const option = document.createElement('option');
+                        option.value = emp.name;
+                        option.textContent = emp.name;
+                        optGroup.appendChild(option);
+                    });
+                
+                employeeSelect.appendChild(optGroup);
+            });
+        } else {
+            // Filtra por empresa selecionada
+            employeesData
+                .filter(emp => selectedCompany ? emp.company === selectedCompany : true)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .forEach(emp => {
+                    const option = document.createElement('option');
+                    option.value = emp.name;
+                    option.textContent = emp.name;
+                    employeeSelect.appendChild(option);
+                });
+        }
     }
 
     // Registrar nova dívida
@@ -255,8 +299,21 @@
         const description = document.getElementById('description').value.trim();
         const debtDate = document.getElementById('debtDate').value;
 
-        if (!employee || isNaN(amount) || amount <= 0 || !debtDate) {
-            alert("Preencha todos os campos obrigatórios corretamente.");
+        // Validação dos campos
+        if (!employee) {
+            alert("Selecione um funcionário.");
+            return;
+        }
+        
+        if (isNaN(amount) || amount <= 0) {
+            alert("Informe um valor válido para a dívida.");
+            document.getElementById('amount').focus();
+            return;
+        }
+        
+        if (!debtDate) {
+            alert("Informe a data do débito.");
+            document.getElementById('debtDate').focus();
             return;
         }
 
@@ -266,6 +323,7 @@
         for (let i = 0; i < (installments || 1); i++) {
             const dueDate = new Date(debtDate);
             dueDate.setMonth(dueDate.getMonth() + i);
+            
             debts.push({
                 company, 
                 employee, 
@@ -273,7 +331,8 @@
                 installmentValue, 
                 installment: i + 1,
                 dueDate: dueDate.toISOString().slice(0, 10),
-                description
+                description,
+                registrationDate: new Date().toISOString().slice(0, 10)
             });
         }
 
@@ -281,11 +340,21 @@
         localStorage.setItem('debts', JSON.stringify(recordedDebts));
         showSummary();
 
-        // Limpar formulário
+        // Limpar apenas os campos do formulário, mantendo os filtros
         document.getElementById('amount').value = "";
         document.getElementById('installments').value = "0";
         document.getElementById('description').value = "";
         document.getElementById('debtDate').value = "";
+        
+        // Mostrar mensagem de sucesso
+        const successMsg = document.createElement('p');
+        successMsg.textContent = 'Dívida registrada com sucesso!';
+        successMsg.style.color = 'green';
+        successMsg.style.marginTop = '10px';
+        document.querySelector('.button-group').appendChild(successMsg);
+        
+        // Remover a mensagem após 3 segundos
+        setTimeout(() => successMsg.remove(), 3000);
     }
 
     // Mostrar resumo das dívidas
@@ -294,6 +363,12 @@
         const resultDiv = document.getElementById('result');
         summaryDiv.innerHTML = '';
 
+        if (recordedDebts.length === 0) {
+            resultDiv.style.display = 'none';
+            return;
+        }
+
+        // Agrupa por empresa e ordena alfabeticamente
         const grouped = recordedDebts.reduce((acc, debt) => {
             const key = debt.company;
             acc[key] = acc[key] || [];
@@ -301,23 +376,42 @@
             return acc;
         }, {});
 
-        for (const company in grouped) {
+        // Ordena as empresas alfabeticamente
+        const sortedCompanies = Object.keys(grouped).sort();
+
+        for (const company of sortedCompanies) {
             const container = document.createElement('div');
             container.classList.add('company-group');
+            
             const title = document.createElement('h3');
             title.textContent = company;
             container.appendChild(title);
 
-            grouped[company].forEach(debt => {
-                const p = document.createElement('p');
-                p.textContent = `Funcionário: ${debt.employee} | Parcela ${debt.installment}: R$ ${debt.installmentValue.toFixed(2)} | Vencimento: ${debt.dueDate} | Descrição: ${debt.description}`;
-                container.appendChild(p);
-            });
+            // Ordena os funcionários por nome
+            grouped[company]
+                .sort((a, b) => a.employee.localeCompare(b.employee))
+                .forEach(debt => {
+                    const p = document.createElement('p');
+                    p.innerHTML = `
+                        <strong>${debt.employee}</strong> | 
+                        Parcela ${debt.installment}: <strong>R$ ${debt.installmentValue.toFixed(2)}</strong> | 
+                        Vencimento: ${formatDate(debt.dueDate)} | 
+                        ${debt.description ? `Descrição: ${debt.description}` : ''}
+                    `;
+                    container.appendChild(p);
+                });
 
             summaryDiv.appendChild(container);
         }
 
         resultDiv.style.display = 'block';
+    }
+
+    // Função para formatar data (DD/MM/AAAA)
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const [year, month, day] = dateString.split('-');
+        return `${day}/${month}/${year}`;
     }
 
     // Exportar para PDF
@@ -333,28 +427,60 @@
         const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(selectedMonth));
 
         if (filtered.length === 0) {
-            alert("Nenhuma dívida encontrada para o mês selecionado.");
+            alert(`Nenhuma dívida encontrada para ${monthText}/${year}`);
             return;
         }
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.setFontSize(14);
-        doc.text(`Relatório de Dívidas - ${monthText.toUpperCase()} ${year}`, 10, 15);
-
-        let y = 25;
-        filtered.forEach((debt, index) => {
-            const text = `${debt.company} | ${debt.employee} | R$ ${debt.installmentValue.toFixed(2)} | ${debt.dueDate} | ${debt.description}`;
-            doc.setFontSize(11);
-            doc.text(text, 10, y);
-            y += 8;
-            if (y > 280) {
-                doc.addPage();
-                y = 15;
-            }
+        
+        // Cabeçalho
+        doc.setFontSize(16);
+        doc.setTextColor(40);
+        doc.text(`Relatório de Dívidas - ${monthText.toUpperCase()} ${year}`, 105, 15, null, null, 'center');
+        
+        // Configurações da tabela
+        const columns = [
+            { header: 'Empresa', dataKey: 'company' },
+            { header: 'Funcionário', dataKey: 'employee' },
+            { header: 'Valor (R$)', dataKey: 'installmentValue' },
+            { header: 'Vencimento', dataKey: 'dueDate' },
+            { header: 'Descrição', dataKey: 'description' }
+        ];
+        
+        const rows = filtered.map(debt => ({
+            ...debt,
+            installmentValue: debt.installmentValue.toFixed(2),
+            dueDate: formatDate(debt.dueDate)
+        }));
+        
+        // Adiciona tabela
+        doc.autoTable({
+            head: [columns.map(col => col.header)],
+            body: rows.map(row => columns.map(col => row[col.dataKey])),
+            startY: 25,
+            styles: {
+                fontSize: 10,
+                cellPadding: 3,
+                overflow: 'linebreak'
+            },
+            columnStyles: {
+                0: { cellWidth: 30 },
+                1: { cellWidth: 30 },
+                2: { cellWidth: 20 },
+                3: { cellWidth: 25 },
+                4: { cellWidth: 'auto' }
+            },
+            margin: { left: 10, right: 10 }
         });
 
-        doc.save(`Dividas-${monthText}-${year}.pdf`);
+        // Rodapé
+        const total = filtered.reduce((sum, debt) => sum + debt.installmentValue, 0);
+        doc.setFontSize(12);
+        doc.text(`Total: R$ ${total.toFixed(2)}`, 14, doc.lastAutoTable.finalY + 10);
+        doc.text(`Data de emissão: ${formatDate(new Date().toISOString().slice(0, 10))}`, 105, doc.lastAutoTable.finalY + 10, null, null, 'center');
+        
+        doc.save(`Relatório_Dívidas_${monthText}_${year}.pdf`);
     }
 
     // Filtrar por mês
@@ -365,6 +491,12 @@
         const filtered = recordedDebts.filter(debt => debt.dueDate.startsWith(month));
         const summaryDiv = document.getElementById('summary');
         summaryDiv.innerHTML = '';
+
+        if (filtered.length === 0) {
+            summaryDiv.innerHTML = '<p>Nenhuma dívida encontrada para o mês selecionado.</p>';
+            document.getElementById('result').style.display = 'block';
+            return;
+        }
 
         const grouped = filtered.reduce((acc, debt) => {
             const key = debt.company;
@@ -380,11 +512,18 @@
             title.textContent = company;
             container.appendChild(title);
 
-            grouped[company].forEach(debt => {
-                const p = document.createElement('p');
-                p.textContent = `Funcionário: ${debt.employee} | Parcela ${debt.installment}: R$ ${debt.installmentValue.toFixed(2)} | Vencimento: ${debt.dueDate} | Descrição: ${debt.description}`;
-                container.appendChild(p);
-            });
+            grouped[company]
+                .sort((a, b) => a.employee.localeCompare(b.employee))
+                .forEach(debt => {
+                    const p = document.createElement('p');
+                    p.innerHTML = `
+                        <strong>${debt.employee}</strong> | 
+                        Parcela ${debt.installment}: <strong>R$ ${debt.installmentValue.toFixed(2)}</strong> | 
+                        Vencimento: ${formatDate(debt.dueDate)} | 
+                        ${debt.description ? `Descrição: ${debt.description}` : ''}
+                    `;
+                    container.appendChild(p);
+                });
 
             summaryDiv.appendChild(container);
         }
@@ -394,11 +533,16 @@
 
     // Limpar histórico
     function clearHistory() {
-        if (confirm("Tem certeza que deseja apagar todo o histórico de dívidas?")) {
+        if (confirm("Tem certeza que deseja apagar todo o histórico de dívidas?\nEsta ação não pode ser desfeita.")) {
             localStorage.removeItem('debts');
             recordedDebts = [];
             showSummary();
-            alert("Histórico apagado.");
+            
+            const msg = document.createElement('p');
+            msg.textContent = 'Histórico apagado com sucesso.';
+            msg.style.color = 'green';
+            document.querySelector('.button-group').appendChild(msg);
+            setTimeout(() => msg.remove(), 3000);
         }
     }
 
@@ -434,6 +578,9 @@
             recordedDebts = JSON.parse(savedDebts);
             showSummary();
         }
+
+        // Definir data padrão para hoje
+        document.getElementById('debtDate').valueAsDate = new Date();
     }
 </script>
 </body>
