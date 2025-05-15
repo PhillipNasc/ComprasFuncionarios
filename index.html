@@ -193,6 +193,7 @@
         <button onclick="submitDebt()">Registrar Dívida</button>
         <button onclick="exportPDF()">Exportar para PDF</button>
         <button onclick="toggleDeleteMode()">Excluir Dívida</button>
+<button style="background-color: red; color: white;" onclick="exportDeleted()">Relatório de Exclusões</button>
     </div>
 
     <div class="form-group">
@@ -216,6 +217,26 @@
     let employeesData = [];
     let recordedDebts = [];
     let deleteMode = false;
+let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
+
+    function toggleDeleteMode() {
+        deleteMode = !deleteMode;
+        alert(deleteMode ? "Modo de exclusão ativado. Clique em um registro para removê-lo." : "Modo de exclusão desativado.");
+    }
+
+    function solicitarSenhaEMotivo(callback) {
+        const senha = prompt("Digite a senha para excluir a dívida:");
+        if (senha !== "Mestre1771") {
+            alert("Senha incorreta. Exclusão cancelada.");
+            return;
+        }
+        const motivo = prompt("Informe o motivo da exclusão:");
+        if (!motivo) {
+            alert("Motivo obrigatório.");
+            return;
+        }
+        callback(motivo);
+    }
 
     // Função para carregar dados da planilha
     async function fetchEmployees() {
@@ -381,6 +402,47 @@
         alert(deleteMode ? "Modo de exclusão ativado. Clique em um registro para removê-lo." : "Modo de exclusão desativado.");
     }
 
+    function exportDeleted() {
+        if (deletedDebts.length === 0) {
+            alert("Nenhuma dívida foi excluída ainda.");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(16);
+        doc.setTextColor(200, 0, 0);
+        doc.text("RELATÓRIO DE DÍVIDAS EXCLUÍDAS", 105, 15, null, null, 'center');
+
+        const rows = deletedDebts.map(d => [
+            d.company,
+            d.employee,
+            `R$ ${d.amount.toFixed(2)}`,
+            d.description || '',
+            d.excluido?.motivo || '',
+            formatDate(d.excluido?.data || '')
+        ]);
+
+        doc.autoTable({
+            head: [['Empresa', 'Funcionário', 'Valor Total (R$)', 'Descrição', 'Motivo da Exclusão', 'Data']],
+            body: rows,
+            startY: 25,
+            styles: {
+                fontSize: 10,
+                cellPadding: 3,
+                overflow: 'linebreak',
+                textColor: [80, 0, 0]
+            },
+            headStyles: {
+                fillColor: [255, 0, 0],
+                textColor: 255
+            },
+            margin: { left: 10, right: 10 }
+        });
+
+        doc.save("Relatorio_Exclusoes.pdf");
+    }
+
     // Mostrar resumo das dívidas
     function showSummary() {
         const summaryDiv = document.getElementById('summary');
@@ -426,14 +488,25 @@
                     p.title = 'Clique para excluir esta dívida';
                     p.onclick = () => {
                         if (!deleteMode) return;
-                        if (confirm("Deseja realmente excluir TODA a dívida deste funcionário?")) {
-                            recordedDebts = recordedDebts.filter(d =>
-                                !(d.employee === debt.employee &&
-                                  d.amount === debt.amount &&
-                                  d.description === debt.description &&
-                                  d.company === debt.company)
-                            );
-                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                        solicitarSenhaEMotivo(function(motivo) {
+    const excluidas = recordedDebts.filter(d =>
+        d.employee === debt.employee &&
+        d.amount === debt.amount &&
+        d.description === debt.description &&
+        d.company === debt.company
+    );
+    excluidas.forEach(d => d.excluido = { motivo, data: new Date().toISOString().slice(0,10) });
+    deletedDebts.push(...excluidas);
+    recordedDebts = recordedDebts.filter(d =>
+        !(d.employee === debt.employee &&
+          d.amount === debt.amount &&
+          d.description === debt.description &&
+          d.company === debt.company)
+    );
+    localStorage.setItem('debts', JSON.stringify(recordedDebts));
+    localStorage.setItem('deletedDebts', JSON.stringify(deletedDebts));
+    showSummary();
+});
                             showSummary();
                         }
                     };
@@ -565,14 +638,25 @@
                     p.title = 'Clique para excluir esta dívida';
                     p.onclick = () => {
                         if (!deleteMode) return;
-                        if (confirm("Deseja realmente excluir TODA a dívida deste funcionário?")) {
-                            recordedDebts = recordedDebts.filter(d =>
-                                !(d.employee === debt.employee &&
-                                  d.amount === debt.amount &&
-                                  d.description === debt.description &&
-                                  d.company === debt.company)
-                            );
-                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                        solicitarSenhaEMotivo(function(motivo) {
+    const excluidas = recordedDebts.filter(d =>
+        d.employee === debt.employee &&
+        d.amount === debt.amount &&
+        d.description === debt.description &&
+        d.company === debt.company
+    );
+    excluidas.forEach(d => d.excluido = { motivo, data: new Date().toISOString().slice(0,10) });
+    deletedDebts.push(...excluidas);
+    recordedDebts = recordedDebts.filter(d =>
+        !(d.employee === debt.employee &&
+          d.amount === debt.amount &&
+          d.description === debt.description &&
+          d.company === debt.company)
+    );
+    localStorage.setItem('debts', JSON.stringify(recordedDebts));
+    localStorage.setItem('deletedDebts', JSON.stringify(deletedDebts));
+    showSummary();
+});
                             showSummary();
                         }
                     };
