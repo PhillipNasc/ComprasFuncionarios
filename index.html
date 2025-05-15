@@ -194,6 +194,7 @@
         <button onclick="exportPDF()">Exportar para PDF</button>
         <button onclick="toggleDeleteMode()">Excluir Dívida</button>
         <button style="background-color: red; color: white;" onclick="exportDeleted()">Relatório de Exclusões</button>
+
     </div>
 
     <div class="form-group">
@@ -205,6 +206,9 @@
         <h2>Resumo:</h2>
         <div id="summary"></div>
     </div>
+<div style="margin-top: 30px;">
+<button onclick="baixarBackup()" style="background-color: gold; color: black;">Baixar Backup</button>
+<input type="file" accept=".json" onchange="restaurarBackup(event)" style="margin-top: 5px;" />
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -597,7 +601,6 @@
 
         doc.save(`Relatório_Dívidas_${monthText}_${year}.pdf`);
     }
-    }
 
     // Filtrar por mês
     function filterByMonth() {
@@ -681,6 +684,37 @@
         
         const themeButton = document.getElementById('themeToggle');
         themeButton.textContent = isLightMode ? 'Modo Escuro' : 'Modo Claro';
+    }
+
+    function baixarBackup() {
+        const dados = localStorage.getItem('debts') || '[]';
+        const blob = new Blob([dados], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'backup_dividas.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function restaurarBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const dados = JSON.parse(e.target.result);
+                if (!Array.isArray(dados)) throw new Error("Formato inválido");
+                localStorage.setItem('debts', JSON.stringify(dados));
+                recordedDebts = dados;
+                showSummary();
+                alert("Backup restaurado com sucesso!");
+            } catch (err) {
+                alert("Erro ao importar o arquivo: " + err.message);
+            }
+        };
+        reader.readAsText(file);
     }
 
     // Inicialização
