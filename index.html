@@ -193,7 +193,7 @@
         <button onclick="submitDebt()">Registrar Dívida</button>
         <button onclick="exportPDF()">Exportar para PDF</button>
         <button onclick="toggleDeleteMode()">Excluir Dívida</button>
-<button style="background-color: red; color: white;" onclick="exportDeleted()">Relatório de Exclusões</button>
+        <button style="background-color: red; color: white;" onclick="exportDeleted()">Relatório de Exclusões</button>
     </div>
 
     <div class="form-group">
@@ -217,26 +217,7 @@
     let employeesData = [];
     let recordedDebts = [];
     let deleteMode = false;
-let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
-
-    function toggleDeleteMode() {
-        deleteMode = !deleteMode;
-        alert(deleteMode ? "Modo de exclusão ativado. Clique em um registro para removê-lo." : "Modo de exclusão desativado.");
-    }
-
-    function solicitarSenhaEMotivo(callback) {
-        const senha = prompt("Digite a senha para excluir a dívida:");
-        if (senha !== "Mestre1771") {
-            alert("Senha incorreta. Exclusão cancelada.");
-            return;
-        }
-        const motivo = prompt("Informe o motivo da exclusão:");
-        if (!motivo) {
-            alert("Motivo obrigatório.");
-            return;
-        }
-        callback(motivo);
-    }
+    let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
 
     // Função para carregar dados da planilha
     async function fetchEmployees() {
@@ -402,6 +383,20 @@ let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
         alert(deleteMode ? "Modo de exclusão ativado. Clique em um registro para removê-lo." : "Modo de exclusão desativado.");
     }
 
+    function solicitarSenhaEMotivo(callback) {
+        const senha = prompt("Digite a senha para excluir a dívida:");
+        if (senha !== "Mestre1771") {
+            alert("Senha incorreta. Exclusão cancelada.");
+            return;
+        }
+        const motivo = prompt("Informe o motivo da exclusão:");
+        if (!motivo) {
+            alert("Motivo obrigatório.");
+            return;
+        }
+        callback(motivo);
+    }
+
     function exportDeleted() {
         if (deletedDebts.length === 0) {
             alert("Nenhuma dívida foi excluída ainda.");
@@ -489,26 +484,24 @@ let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
                     p.onclick = () => {
                         if (!deleteMode) return;
                         solicitarSenhaEMotivo(function(motivo) {
-    const excluidas = recordedDebts.filter(d =>
-        d.employee === debt.employee &&
-        d.amount === debt.amount &&
-        d.description === debt.description &&
-        d.company === debt.company
-    );
-    excluidas.forEach(d => d.excluido = { motivo, data: new Date().toISOString().slice(0,10) });
-    deletedDebts.push(...excluidas);
-    recordedDebts = recordedDebts.filter(d =>
-        !(d.employee === debt.employee &&
-          d.amount === debt.amount &&
-          d.description === debt.description &&
-          d.company === debt.company)
-    );
-    localStorage.setItem('debts', JSON.stringify(recordedDebts));
-    localStorage.setItem('deletedDebts', JSON.stringify(deletedDebts));
-    showSummary();
-});
+                            const excluidas = recordedDebts.filter(d =>
+                                d.employee === debt.employee &&
+                                d.amount === debt.amount &&
+                                d.description === debt.description &&
+                                d.company === debt.company
+                            );
+                            excluidas.forEach(d => d.excluido = { motivo, data: new Date().toISOString().slice(0,10) });
+                            deletedDebts.push(...excluidas);
+                            recordedDebts = recordedDebts.filter(d =>
+                                !(d.employee === debt.employee &&
+                                d.amount === debt.amount &&
+                                d.description === debt.description &&
+                                d.company === debt.company)
+                            );
+                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                            localStorage.setItem('deletedDebts', JSON.stringify(deletedDebts));
                             showSummary();
-                        }
+                        });
                     };
                     container.appendChild(p);
                 });
@@ -639,26 +632,24 @@ let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
                     p.onclick = () => {
                         if (!deleteMode) return;
                         solicitarSenhaEMotivo(function(motivo) {
-    const excluidas = recordedDebts.filter(d =>
-        d.employee === debt.employee &&
-        d.amount === debt.amount &&
-        d.description === debt.description &&
-        d.company === debt.company
-    );
-    excluidas.forEach(d => d.excluido = { motivo, data: new Date().toISOString().slice(0,10) });
-    deletedDebts.push(...excluidas);
-    recordedDebts = recordedDebts.filter(d =>
-        !(d.employee === debt.employee &&
-          d.amount === debt.amount &&
-          d.description === debt.description &&
-          d.company === debt.company)
-    );
-    localStorage.setItem('debts', JSON.stringify(recordedDebts));
-    localStorage.setItem('deletedDebts', JSON.stringify(deletedDebts));
-    showSummary();
-});
+                            const excluidas = recordedDebts.filter(d =>
+                                d.employee === debt.employee &&
+                                d.amount === debt.amount &&
+                                d.description === debt.description &&
+                                d.company === debt.company
+                            );
+                            excluidas.forEach(d => d.excluido = { motivo, data: new Date().toISOString().slice(0,10) });
+                            deletedDebts.push(...excluidas);
+                            recordedDebts = recordedDebts.filter(d =>
+                                !(d.employee === debt.employee &&
+                                d.amount === debt.amount &&
+                                d.description === debt.description &&
+                                d.company === debt.company)
+                            );
+                            localStorage.setItem('debts', JSON.stringify(recordedDebts));
+                            localStorage.setItem('deletedDebts', JSON.stringify(deletedDebts));
                             showSummary();
-                        }
+                        });
                     };
                     container.appendChild(p);
                 });
@@ -701,6 +692,12 @@ let deletedDebts = JSON.parse(localStorage.getItem('deletedDebts') || '[]');
         if (savedDebts) {
             recordedDebts = JSON.parse(savedDebts);
             showSummary();
+        }
+
+        // Carregar dívidas excluídas
+        const savedDeletedDebts = localStorage.getItem('deletedDebts');
+        if (savedDeletedDebts) {
+            deletedDebts = JSON.parse(savedDeletedDebts);
         }
 
         // Definir data padrão para hoje
