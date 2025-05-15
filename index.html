@@ -538,54 +538,65 @@
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
-        // Cabeçalho
         doc.setFontSize(16);
         doc.setTextColor(40);
         doc.text(`Relatório de Dívidas - ${monthText.toUpperCase()} ${year}`, 105, 15, null, null, 'center');
-        
-        // Configurações da tabela
-        const columns = [
-            { header: 'Empresa', dataKey: 'company' },
-            { header: 'Funcionário', dataKey: 'employee' },
-            { header: 'Valor (R$)', dataKey: 'installmentValue' },
-            { header: 'Vencimento', dataKey: 'dueDate' },
-            { header: 'Descrição', dataKey: 'description' }
-        ];
-        
-        const rows = filtered.map(debt => ({
-            ...debt,
-            installmentValue: debt.installmentValue.toFixed(2),
-            dueDate: formatDate(debt.dueDate)
-        }));
-        
-        // Adiciona tabela
-        doc.autoTable({
-            head: [columns.map(col => col.header)],
-            body: rows.map(row => columns.map(col => row[col.dataKey])),
-            startY: 25,
-            styles: {
-                fontSize: 10,
-                cellPadding: 3,
-                overflow: 'linebreak'
-            },
-            columnStyles: {
-                0: { cellWidth: 30 },
-                1: { cellWidth: 30 },
-                2: { cellWidth: 20 },
-                3: { cellWidth: 25 },
-                4: { cellWidth: 'auto' }
-            },
-            margin: { left: 10, right: 10 }
+
+        let currentY = 25;
+        const grouped = filtered.reduce((acc, debt) => {
+            acc[debt.company] = acc[debt.company] || [];
+            acc[debt.company].push(debt);
+            return acc;
+        }, {});
+
+        Object.keys(grouped).sort().forEach(company => {
+            doc.setFontSize(12);
+            doc.setTextColor(0);
+            doc.text(`Empresa: ${company}`, 14, currentY);
+            currentY += 5;
+
+            const rows = grouped[company].map(debt => {
+                const totalParcelas = recordedDebts.filter(d =>
+                    d.employee === debt.employee &&
+                    d.amount === debt.amount &&
+                    d.description === debt.description &&
+                    d.company === debt.company
+                ).length;
+                const parcelasRestantes = totalParcelas - debt.installment + 1;
+                return [
+                    debt.employee,
+                    `R$ ${debt.installmentValue.toFixed(2)}`,
+                    parcelasRestantes.toString(),
+                    debt.description || ''
+                ];
+            });
+
+            doc.autoTable({
+                head: [['Funcionário', 'Valor (R$)', 'Parcelas Restantes', 'Descrição']],
+                body: rows,
+                startY: currentY,
+                styles: {
+                    fontSize: 10,
+                    cellPadding: 3
+                },
+                columnStyles: {
+                    1: { halign: 'center', fontStyle: 'bold' },
+                    2: { halign: 'center', fontStyle: 'bold' }
+                },
+                margin: { left: 14, right: 14 },
+                didDrawPage: data => {
+                    currentY = data.cursor.y + 10;
+                }
+            });
         });
 
-        // Rodapé
         const total = filtered.reduce((sum, debt) => sum + debt.installmentValue, 0);
         doc.setFontSize(12);
-        doc.text(`Total: R$ ${total.toFixed(2)}`, 14, doc.lastAutoTable.finalY + 10);
-        doc.text(`Data de emissão: ${formatDate(new Date().toISOString().slice(0, 10))}`, 105, doc.lastAutoTable.finalY + 10, null, null, 'center');
-        
+        doc.text(`Total: R$ ${total.toFixed(2)}`, 14, currentY);
+        doc.text(`Data de emissão: ${formatDate(new Date().toISOString().slice(0, 10))}`, 105, currentY, null, null, 'center');
+
         doc.save(`Relatório_Dívidas_${monthText}_${year}.pdf`);
+    }
     }
 
     // Filtrar por mês
